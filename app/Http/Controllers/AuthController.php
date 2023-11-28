@@ -1,0 +1,112 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
+
+class AuthController extends Controller
+{
+    function index()
+    {
+        return view('halaman_auth/login');
+    }
+    function login(Request $request)
+    {
+        $request->validate([
+            'email => required',
+            'password => required',
+        ], [
+            'email.required' => 'Email wajib diisi',
+            'password.required' => 'Password wajib diisi',
+        ]);
+
+        $auth = Auth::attempt([
+            'email' => $request->email,
+            'password' => $request->password,
+        ]);
+
+        if ($auth) {
+            $request->session()->regenerate();
+            $user = Auth::user();
+            return redirect()->intended('dashboard');
+            // return redirect()->to('/sesi');
+        } else {
+            return redirect()->route('auth')->withErrors('Email atau Password salah');
+        }
+    }
+
+
+    function create()
+    {
+        return view('halaman_auth/register');
+    }
+    function register(Request $request)
+    {
+        $str = Str::random(100);
+
+        $request->validate([
+            'fullname' => 'required|min:5',
+            'email' => 'required|unique:users|email',
+            'password' => 'required|min:6',
+
+        ], [
+            'fullname.required' => 'Full Name wajib diisi',
+            'fullname.min' => 'Full Name minimal 5 karakter',
+            'email.required' => 'Email wajib diisi',
+            'email.unique' => 'Email telah terdaftar',
+            'password.required' => 'Password wajib diisi',
+            'password.min' => 'Password minimal 6 karakter',
+
+
+        ]);
+
+        // $gambar_file = $request->file('gambar');
+        // $gambar_ekstensi = $gambar_file->extension();
+        // $nama_gambar = date('ymdhis') . "." . $gambar_ekstensi;
+        // $gambar_file->move(public_path('picture/accounts'), $nama_gambar);
+
+        $inforegister = [
+            'fullname' => $request->fullname,
+            'email' => $request->email,
+            'password' => $request->password,
+            // 'gambar' => $nama_gambar,
+            'verify_key' => $str
+        ];
+
+        User::create($inforegister);
+
+        $details = [
+            'nama' => $inforegister['fullname'],
+            'role' => 'user',
+            'datetime' => date('Y-m-d H:i:s'),
+            'website' => 'Penilaian Web Unpak',
+            'url' => 'http://' . request()->getHttpHost() . "/" . "verify/" . $inforegister['verify_key'],
+        ];
+    }
+    // function verify($verify_key)
+    // {
+    //     $keyCheck = User::select('verify_key')
+    //         ->where('verify_key', $verify_key)
+    //         ->exists();
+
+    //     if ($keyCheck) {
+    //         $user = User::where('verify_key', $verify_key)->update(['email_verified_at' => date('Y-m-d H:i:s')]);
+
+    //         return redirect()->route('auth')->with('success', 'Verifikasi berhasil. akun anda sudah aktif.');
+    //     } else {
+    //         return redirect()->route('auth')->withErrors('Keys tidak valid. pastikan telah melakukan register')->withInput();
+    //     }
+    // }
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/sesi');
+    }
+}
